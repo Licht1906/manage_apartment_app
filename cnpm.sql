@@ -92,29 +92,29 @@ BEGIN
 END;
 GO
 
-CREATE TABLE dbo.KhoanThu (
-    MaKhoanThu      INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-    TenKhoanThu     NVARCHAR(100)     NOT NULL,
-    ThoiGianBatDau  DATE              NOT NULL,
-    ThoiGianKetThuc DATE              NOT NULL,
-    LoaiKhoanThu    INT               NOT NULL,
-    ChiTiet         NVARCHAR(MAX)     NULL,
-    GhiChu          NVARCHAR(200)     NULL
-);
+--CREATE TABLE dbo.KhoanThu (
+--    MaKhoanThu      INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+--    TenKhoanThu     NVARCHAR(100)     NOT NULL,
+--    ThoiGianBatDau  DATE              NOT NULL,
+--    ThoiGianKetThuc DATE              NOT NULL,
+--    LoaiKhoanThu    INT               NOT NULL,
+--    ChiTiet         NVARCHAR(MAX)     NULL,
+--    GhiChu          NVARCHAR(200)     NULL
+--);
 GO
 
-CREATE TABLE dbo.KhoanThuTheoHo (
-    MaKhoanThuTheoHo INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-    MaKhoanThu       INT               NOT NULL,
-    MaHoKhau         NVARCHAR(10)      NOT NULL,
-    SoTien           INT               NOT NULL,
+--CREATE TABLE dbo.KhoanThuTheoHo (
+--    MaKhoanThuTheoHo INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+--    MaKhoanThu       INT               NOT NULL,
+--    MaHoKhau         NVARCHAR(10)      NOT NULL,
+--    SoTien           INT               NOT NULL,
 
-    CONSTRAINT FK_KTTH_KT FOREIGN KEY (MaKhoanThu)
-        REFERENCES dbo.KhoanThu(MaKhoanThu),
+--    CONSTRAINT FK_KTTH_KT FOREIGN KEY (MaKhoanThu)
+--        REFERENCES dbo.KhoanThu(MaKhoanThu),
 
-    CONSTRAINT FK_KTTH_HK FOREIGN KEY (MaHoKhau)
-        REFERENCES dbo.HoKhau(MaHoKhau)
-);
+--    CONSTRAINT FK_KTTH_HK FOREIGN KEY (MaHoKhau)
+--        REFERENCES dbo.HoKhau(MaHoKhau)
+--);
 GO
 
 CREATE TABLE HoaDon (

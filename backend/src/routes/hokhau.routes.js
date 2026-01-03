@@ -1,121 +1,150 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const auth = require('../middleware/auth');
-const { sql, config } = require('../config/db');
+const auth = require("../middleware/auth");
+const { sql, config } = require("../config/db");
 
-// Lấy tất cả HoKhau
-router.get('/', auth, async (req, res) => {
-    try {
-        let pool = await sql.connect(config);
-        let result = await pool.request().query('SELECT * FROM HoKhau');
-        res.json(result.recordset);
-    } catch (err) {
-        console.log(err);
-        res.status(500).json({ error: 'Database error' });
-    }
+// GET HoKhau + CanHo
+router.get("/", auth, async (req, res) => {
+  try {
+    const pool = await sql.connect(config);
+    const result = await pool.request().query(`
+      SELECT hk.*, ch.MaCanHo, ch.TenCanHo, ch.Tang, ch.DienTich, ch.MoTa
+      FROM HoKhau hk
+      LEFT JOIN CanHo ch ON hk.MaHoKhau = ch.MaHoKhau
+    `);
+
+    const map = {};
+    result.recordset.forEach(r => {
+      if (!map[r.MaHoKhau]) {
+        map[r.MaHoKhau] = {
+          MaHoKhau: r.MaHoKhau,
+          DiaChiThuongTru: r.DiaChiThuongTru,
+          NoiCap: r.NoiCap,
+          NgayCap: r.NgayCap,
+          CanHo: []
+        };
+      }
+
+      if (r.MaCanHo) {
+        map[r.MaHoKhau].CanHo.push({
+          MaCanHo: r.MaCanHo,
+          TenCanHo: r.TenCanHo,
+          Tang: r.Tang,
+          DienTich: r.DienTich,
+          MoTa: r.MoTa
+        });
+      }
+    });
+
+    res.json(Object.values(map));
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: "Database error" });
+  }
 });
 
-// Lấy HoKhau theo mã
-router.get('/:id', auth, async (req, res) => {
-    try {
-        let pool = await sql.connect(config);
-        let result = await pool.request()
-            .input('id', sql.NVarChar, req.params.id)
-            .query('SELECT * FROM HoKhau WHERE MaHoKhau = @id');
+// POST HoKhau + CanHo
+router.post("/", auth, async (req, res) => {
+  const { MaHoKhau, DiaChiThuongTru, NoiCap, NgayCap, CanHo } = req.body;
 
-        if (result.recordset.length === 0) {
-            return res.status(404).json({ error: 'Không tìm thấy hộ khẩu' });
-        }
+  const pool = await sql.connect(config);
+  const transaction = new sql.Transaction(pool);
 
-        res.json(result.recordset[0]);
-    } catch (err) {
-        console.log(err);
-        res.status(500).json({ error: 'Database error' });
+  try {
+    await transaction.begin();
+
+    await transaction.request()
+      .input("MaHoKhau", sql.NVarChar, MaHoKhau)
+      .input("DiaChiThuongTru", sql.NVarChar, DiaChiThuongTru)
+      .input("NoiCap", sql.NVarChar, NoiCap)
+      .input("NgayCap", sql.Date, NgayCap)
+      .query(`
+        INSERT INTO HoKhau VALUES
+        (@MaHoKhau, @DiaChiThuongTru, @NoiCap, @NgayCap)
+      `);
+
+    for (let ch of CanHo || []) {
+      await transaction.request()
+        .input("MaHoKhau", sql.NVarChar, MaHoKhau)
+        .input("TenCanHo", sql.NVarChar, ch.TenCanHo)
+        .input("Tang", sql.NVarChar, ch.Tang)
+        .input("DienTich", sql.Float, ch.DienTich)
+        .input("MoTa", sql.NVarChar, ch.MoTa || null)
+        .query(`
+          INSERT INTO CanHo (MaHoKhau, TenCanHo, Tang, DienTich, MoTa)
+          VALUES (@MaHoKhau, @TenCanHo, @Tang, @DienTich, @MoTa)
+        `);
     }
+
+    await transaction.commit();
+    res.json({ message: "Thêm thành công" });
+  } catch (err) {
+    await transaction.rollback();
+    console.log(err);
+    res.status(500).json({ error: "Database error" });
+  }
 });
 
-// Thêm hộ khẩu
-router.post('/', auth, async (req, res) => {
-    const { MaHoKhau, DiaChiThuongTru, NoiCap, NgayCap } = req.body;
+// PUT cập nhật HoKhau + CanHo
+router.put("/:id", auth, async (req, res) => {
+  const { DiaChiThuongTru, NoiCap, NgayCap, CanHo } = req.body;
+  const MaHoKhau = req.params.id;
 
-    try {
-        let pool = await sql.connect(config);
-        await pool.request()
-            .input('MaHoKhau', sql.NVarChar, MaHoKhau)
-            .input('DiaChiThuongTru', sql.NVarChar, DiaChiThuongTru)
-            .input('NoiCap', sql.NVarChar, NoiCap)
-            .input('NgayCap', sql.Date, NgayCap)
-            .query(`
-                INSERT INTO HoKhau (MaHoKhau, DiaChiThuongTru, NoiCap, NgayCap)
-                VALUES (@MaHoKhau, @DiaChiThuongTru, @NoiCap, @NgayCap)
-            `);
+  const pool = await sql.connect(config);
+  const transaction = new sql.Transaction(pool);
 
-        res.json({ message: 'Thêm hộ khẩu thành công' });
-    } catch (err) {
-        console.log(err);
-        res.status(500).json({ error: 'Database error' });
+  try {
+    await transaction.begin();
+
+    await transaction.request()
+      .input("MaHoKhau", sql.NVarChar, MaHoKhau)
+      .input("DiaChiThuongTru", sql.NVarChar, DiaChiThuongTru)
+      .input("NoiCap", sql.NVarChar, NoiCap)
+      .input("NgayCap", sql.Date, NgayCap)
+      .query(`
+        UPDATE HoKhau
+        SET DiaChiThuongTru=@DiaChiThuongTru,
+            NoiCap=@NoiCap,
+            NgayCap=@NgayCap
+        WHERE MaHoKhau=@MaHoKhau
+      `);
+
+    await transaction.request()
+      .input("MaHoKhau", sql.NVarChar, MaHoKhau)
+      .query(`DELETE FROM CanHo WHERE MaHoKhau=@MaHoKhau`);
+
+    for (let ch of CanHo || []) {
+      await transaction.request()
+        .input("MaHoKhau", sql.NVarChar, MaHoKhau)
+        .input("TenCanHo", sql.NVarChar, ch.TenCanHo)
+        .input("Tang", sql.NVarChar, ch.Tang)
+        .input("DienTich", sql.Float, ch.DienTich)
+        .input("MoTa", sql.NVarChar, ch.MoTa || null)
+        .query(`
+          INSERT INTO CanHo (MaHoKhau, TenCanHo, Tang, DienTich, MoTa)
+          VALUES (@MaHoKhau, @TenCanHo, @Tang, @DienTich, @MoTa)
+        `);
     }
+
+    await transaction.commit();
+    res.json({ message: "Cập nhật thành công" });
+  } catch (err) {
+    await transaction.rollback();
+    res.status(500).json({ error: "Database error" });
+  }
 });
 
-// Cập nhật hộ khẩu
-router.put('/:id', auth, async (req, res) => {
-    const { DiaChiThuongTru, NoiCap, NgayCap } = req.body;
+// DELETE
+router.delete("/:id", auth, async (req, res) => {
+  const pool = await sql.connect(config);
+  await pool.request()
+    .input("id", sql.NVarChar, req.params.id)
+    .query(`
+      DELETE FROM CanHo WHERE MaHoKhau=@id;
+      DELETE FROM HoKhau WHERE MaHoKhau=@id;
+    `);
 
-    try {
-        let pool = await sql.connect(config);
-        await pool.request()
-            .input('MaHoKhau', sql.NVarChar, req.params.id)
-            .input('DiaChiThuongTru', sql.NVarChar, DiaChiThuongTru)
-            .input('NoiCap', sql.NVarChar, NoiCap)
-            .input('NgayCap', sql.Date, NgayCap)
-            .query(`
-                UPDATE HoKhau
-                SET DiaChiThuongTru = @DiaChiThuongTru,
-                    NoiCap = @NoiCap,
-                    NgayCap = @NgayCap
-                WHERE MaHoKhau = @MaHoKhau
-            `);
-
-        res.json({ message: 'Cập nhật thành công' });
-    } catch (err) {
-        console.log(err);
-        res.status(500).json({ error: 'Database error' });
-    }
-});
-
-// Xoá hộ khẩu
-router.delete('/:id', auth, async (req, res) => {
-    try {
-        let pool = await sql.connect(config);
-        await pool.request()
-            .input('id', sql.NVarChar, req.params.id)
-            .query('DELETE FROM HoKhau WHERE MaHoKhau = @id');
-
-        res.json({ message: 'Xoá thành công' });
-    } catch (err) {
-        console.log(err);
-        res.status(500).json({ error: 'Database error' });
-    }
-});
-
-router.get('/search/:keyword', auth, async (req, res) => {
-    try {
-        const keyword = `%${req.params.keyword}%`;
-
-        let pool = await sql.connect(config);
-        let result = await pool.request()
-            .input('kw', sql.NVarChar, keyword)
-            .query(`
-                SELECT * FROM HoKhau
-                WHERE MaHoKhau LIKE @kw
-                   OR DiaChiThuongTru LIKE @kw
-            `);
-
-        res.json(result.recordset);
-    } catch (err) {
-        console.log(err);
-        res.status(500).json({ error: 'Database error' });
-    }
+  res.json({ message: "Xóa thành công" });
 });
 
 module.exports = router;

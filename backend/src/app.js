@@ -42,8 +42,8 @@ app.use('/tamtru', tamTruRoutes);
 const tamVangRoutes = require('./routes/tamvang.routes');
 app.use('/tamvang', tamVangRoutes);
 
-const canHoRoutes = require('./routes/canho.routes');
-app.use('/canho', canHoRoutes);
+//const canHoRoutes = require('./routes/canho.routes');
+//app.use('/canho', canHoRoutes);
 
 const loaiXeRoutes = require('./routes/loaixe.routes');
 const xeRoutes = require('./routes/xe.routes');
