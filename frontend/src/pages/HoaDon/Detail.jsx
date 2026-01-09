@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Modal, Table, message, Descriptions } from "antd";
+import { Modal, Table, message, Descriptions, Tag, Button } from "antd";
 import axiosClient from "../../api/axiosClient";
 import dayjs from "dayjs";
 
@@ -12,6 +12,18 @@ export default function HoaDonDetail({ id, onClose }) {
             setData(res.data);
         } catch {
             message.error("Không tải được chi tiết hóa đơn");
+        }
+    };
+
+    const thanhToan = async () => {
+        try {
+            await axiosClient.put(`/hoadon/${id}/thanhtoan`);
+            message.success("Thanh toán thành công!");
+            load(); // load lại chi tiết
+        } catch (err) {
+            message.error(
+                err?.response?.data?.error || "Không thể thanh toán"
+            );
         }
     };
 
@@ -48,9 +60,25 @@ export default function HoaDonDetail({ id, onClose }) {
                         <Descriptions.Item label="Tổng tiền">
                             <b>{data.info.TongTien.toLocaleString("vi-VN")} ₫</b>
                         </Descriptions.Item>
+
+                        <Descriptions.Item label="Trạng thái">
+                            {data.info.TrangThaiThanhToan ? (
+                                <Tag color="green">Đã thanh toán</Tag>
+                            ) : (
+                                <Tag color="red">Chưa thanh toán</Tag>
+                            )}
+                        </Descriptions.Item>
                     </Descriptions>
 
                     <h3 style={{ marginTop: 20 }}>Chi tiết khoản thu</h3>
+
+                    {!data.info.TrangThaiThanhToan && (
+                        <div style={{ marginTop: 20, textAlign: "right" }}>
+                            <Button type="primary" onClick={thanhToan}>
+                                Thanh toán hóa đơn
+                            </Button>
+                        </div>
+                    )}
 
                     <Table
                         dataSource={data.chitiet}

@@ -16,7 +16,8 @@ router.get("/", auth, async (req, res) => {
                 HD.MaHoKhau,
                 HK.DiaChiThuongTru AS DiaChi,
                 HD.NgayTao,
-                HD.TongTien
+                HD.TongTien,
+                HD.TrangThaiThanhToan
             FROM HoaDon HD
             LEFT JOIN HoKhau HK ON HD.MaHoKhau = HK.MaHoKhau
             ORDER BY HD.MaHoaDon DESC
@@ -46,7 +47,8 @@ router.get("/:MaHoaDon", auth, async (req, res) => {
                     HD.MaHoKhau,
                     HK.DiaChiThuongTru AS DiaChi,
                     HD.NgayTao,
-                    HD.TongTien
+                    HD.TongTien,
+                    HD.TrangThaiThanhToan
                 FROM HoaDon HD
                 LEFT JOIN HoKhau HK ON HD.MaHoKhau = HK.MaHoKhau
                 WHERE HD.MaHoaDon = @MaHoaDon
@@ -164,7 +166,25 @@ router.post("/", auth, async (req, res) => {
 // =====================================
 router.delete("/:MaHoaDon", auth, async (req, res) => {
     try {
-        let pool = await sql.connect(config);
+        const pool = await sql.connect(config);
+        // Kiểm tra trạng thái
+        const check = await pool.request()
+            .input("MaHoaDon", sql.Int, req.params.MaHoaDon)
+            .query(`
+                SELECT TrangThaiThanhToan
+                FROM HoaDon
+                WHERE MaHoaDon = @MaHoaDon
+            `);
+
+        if (check.recordset.length === 0) {
+            return res.status(404).json({ error: "Hóa đơn không tồn tại" });
+        }
+
+        if (check.recordset[0].TrangThaiThanhToan) {
+            return res.status(400).json({
+                error: "Không thể xóa hóa đơn đã thanh toán"
+            });
+        }
 
         // Xóa chi tiết trước
         await pool.request()
@@ -184,6 +204,47 @@ router.delete("/:MaHoaDon", auth, async (req, res) => {
 
     } catch (err) {
         console.log("Error delete:", err);
+        res.status(500).json({ error: "DB error" });
+    }
+});
+
+// =====================================
+// THANH TOÁN HÓA ĐƠN
+// =====================================
+router.put("/:MaHoaDon/thanhtoan", auth, async (req, res) => {
+    try {
+        const pool = await sql.connect(config);
+
+        // Kiểm tra hóa đơn
+        const hd = await pool.request()
+            .input("MaHoaDon", sql.Int, req.params.MaHoaDon)
+            .query(`
+                SELECT TrangThaiThanhToan
+                FROM HoaDon
+                WHERE MaHoaDon = @MaHoaDon
+            `);
+
+        if (hd.recordset.length === 0) {
+            return res.status(404).json({ error: "Hóa đơn không tồn tại" });
+        }
+
+        if (hd.recordset[0].TrangThaiThanhToan) {
+            return res.status(400).json({ error: "Hóa đơn đã thanh toán" });
+        }
+
+        // Cập nhật trạng thái
+        await pool.request()
+            .input("MaHoaDon", sql.Int, req.params.MaHoaDon)
+            .query(`
+                UPDATE HoaDon
+                SET TrangThaiThanhToan = 1
+                WHERE MaHoaDon = @MaHoaDon
+            `);
+
+        res.json({ message: "Thanh toán hóa đơn thành công" });
+
+    } catch (err) {
+        console.log("Error thanh toan:", err);
         res.status(500).json({ error: "DB error" });
     }
 });

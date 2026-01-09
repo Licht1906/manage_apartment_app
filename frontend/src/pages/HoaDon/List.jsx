@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Table, Button, Space, Modal, message } from "antd";
+import { Table, Button, Space, Modal, message, Tag} from "antd";
 import axiosClient from "../../api/axiosClient";
 import HoaDonCreate from "./Create";
 import HoaDonDetail from "./Detail";
@@ -22,6 +22,26 @@ export default function HoaDonList() {
     useEffect(() => {
         load();
     }, []);
+
+    const thanhToan = (id) => {
+        Modal.confirm({
+            title: "Xác nhận thanh toán?",
+            content: "Sau khi thanh toán sẽ không thể chỉnh sửa hoặc xóa hóa đơn.",
+            okText: "Thanh toán",
+            cancelText: "Hủy",
+            onOk: async () => {
+                try {
+                    await axiosClient.put(`/hoadon/${id}/thanhtoan`);
+                    message.success("Thanh toán thành công!");
+                    load();
+                } catch (err) {
+                    message.error(
+                        err?.response?.data?.error || "Không thể thanh toán"
+                    );
+                }
+            }
+        });
+    };
 
     const remove = (id) => {
         Modal.confirm({
@@ -57,10 +77,33 @@ export default function HoaDonList() {
             title: "Hành động",
             render: (_, r) => (
                 <Space>
-                    <Button onClick={() => setDetailId(r.MaHoaDon)}>Xem</Button>
-                    <Button danger onClick={() => remove(r.MaHoaDon)}>Xóa</Button>
+                    <Button onClick={() => setDetailId(r.MaHoaDon)}>
+                        Xem
+                    </Button>
+
+                    {!r.TrangThaiThanhToan && (
+                        <Button type="primary" onClick={() => thanhToan(r.MaHoaDon)}>
+                            Thanh toán
+                        </Button>
+                    )}
+
+                    {!r.TrangThaiThanhToan && (
+                        <Button danger onClick={() => remove(r.MaHoaDon)}>
+                            Xóa
+                        </Button>
+                    )}
                 </Space>
             )
+        },
+        {
+            title: "Trạng thái",
+            dataIndex: "TrangThaiThanhToan",
+            render: (v) =>
+                v ? (
+                    <Tag color="green">Đã thanh toán</Tag>
+                ) : (
+                    <Tag color="red">Chưa thanh toán</Tag>
+                )
         }
     ];
 
